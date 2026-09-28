@@ -8,8 +8,9 @@ The model may later be expanded to predict the expected delay in minutes if time
 <img width="1280" height="720" alt="image" src="https://github.com/user-attachments/assets/872ec575-39c6-4fd0-9984-b152f27f2bb2" />
 
 
-# Code examples exemplifying how to execute the code
+# Diagram of ML system
 
+<img width="1898" height="1034" alt="image" src="https://github.com/user-attachments/assets/b1177760-6b1b-4584-85a3-9fb0932c9aec" />
 
 # Team Members
 Megan Fields · Audrey Hartford · Lila Isett · Jamie Jordan · Melissa Sierocki
