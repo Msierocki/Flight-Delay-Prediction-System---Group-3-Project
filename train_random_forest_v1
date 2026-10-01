@@ -1,0 +1,313 @@
+import json
+import hashlib
+import joblib
+import mlflow
+import mlflow.sklearn
+import pandas as pd
+import numpy as np
+from datetime import datetime
+from pathlib import Path
+from sklearn.compose import ColumnTransformer
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.impute import SimpleImputer
+from sklearn.metrics import (
+    accuracy_score, precision_score, recall_score,
+    f1_score, roc_auc_score, confusion_matrix, classification_report
+)
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder
+
+# File paths
+PROCESSED_DIR = Path(r"C:\Users\audre\OneDrive\Desktop\ML Model Code\Data\Processed")
+MODEL_DIR = Path(r"C:\Users\audre\OneDrive\Desktop\ML Model Code\Models")
+DATA_PATH = PROCESSED_DIR / "flights_model_ready_v1.csv"
+MODEL_PATH = MODEL_DIR / "v1_random_forest.joblib"
+METRICS_LOG_PATH = MODEL_DIR / "v1_random_forest_metrics.json"
+
+# SQLite backend for MLflow — no file-store deprecation warning
+MLFLOW_TRACKING_URI = "sqlite:///" + str(
+    Path(r"C:\Users\audre\OneDrive\Desktop\ML Model Code") / "mlflow.db"
+)
+
+# Model version metadata — update when hyperparameters or features change
+MODEL_VERSION = "1.0"
+DATASET_VERSION = "v1"
+MODEL_DESCRIPTION = (
+    "Version 1 Random Forest classifier. "
+    "Features: BTS flight history only (scheduled timing, route, carrier, time-based). "
+    "No weather or previous-flight information. "
+    "Time-based 70/15/15 train/validation/test split."
+)
+
+# Feature candidates aligned with data prep v1 output
+FEATURE_CANDIDATES = [
+    "OP_UNIQUE_CARRIER",
+    "OP_CARRIER_FL_NUM",
+    "TAIL_NUM",
+    "ORIGIN_STATE_NM",
+    "DEST_STATE_NM",
+    "CRS_DEP_TIME",
+    "CRS_ARR_TIME",
+    "CRS_ELAPSED_TIME",
+    "MONTH",
+    "DAY_OF_WEEK",
+    "DAY",
+    "DAY_OF_MONTH",
+    "IS_WEEKEND",
+    "SEASON",
+    "CRS_DEP_HOUR",
+    "CRS_DEP_MINUTE",
+    "CRS_ARR_HOUR",
+    "CRS_ARR_MINUTE",
+    "DEP_HOUR",
+    "DEP_TIME_BUCKET",
+    "ROUTE",
+]
+
+# Random Forest hyperparameters
+RF_PARAMS = {
+    "n_estimators": 200,
+    "max_depth": 20,
+    "min_samples_split": 10,
+    "min_samples_leaf": 5,
+    "max_features": "sqrt",
+    "class_weight": "balanced",
+    "random_state": 42,
+    "n_jobs": -1,
+}
+
+
+def file_md5(path: Path, chunk_size: int = 1 << 20) -> str:
+    """Compute MD5 checksum of a file for data versioning."""
+    md5 = hashlib.md5()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(chunk_size), b""):
+            md5.update(chunk)
+    return md5.hexdigest()
+
+
+def load_and_validate(path: Path) -> pd.DataFrame:
+    """Load model-ready dataset and run basic integrity checks."""
+    print(f"Loading dataset: {path}")
+    df = pd.read_csv(path, low_memory=False)
+    print(f"Shape: {df.shape}")
+
+    if "FL_DATE" not in df.columns:
+        raise ValueError("FL_DATE column is required for time-based splitting.")
+    if "TARGET_DELAYED" not in df.columns:
+        raise ValueError("TARGET_DELAYED column is required as the target variable.")
+    if df["TARGET_DELAYED"].isna().any():
+        raise ValueError("TARGET_DELAYED contains nulls — re-run data prep.")
+    if not df["TARGET_DELAYED"].isin([0, 1]).all():
+        raise ValueError("TARGET_DELAYED contains values outside {0, 1}.")
+
+    df["FL_DATE"] = pd.to_datetime(df["FL_DATE"], errors="coerce")
+    df = df[df["FL_DATE"].notna()].copy()
+    df = df.sort_values("FL_DATE").reset_index(drop=True)
+
+    print(f"Target distribution:\n{df['TARGET_DELAYED'].value_counts(dropna=False).to_string()}")
+    print(f"Delay rate: {df['TARGET_DELAYED'].mean():.2%}")
+    print(f"Date range: {df['FL_DATE'].min().date()} to {df['FL_DATE'].max().date()}")
+    return df
+
+
+def build_splits(df: pd.DataFrame, features: list):
+    """Time-based 70/15/15 split — no data leakage from future months."""
+    n = len(df)
+    train_end = int(n * 0.70)
+    valid_end = int(n * 0.85)
+
+    X = df[features].copy()
+    y = df["TARGET_DELAYED"].astype(int).copy()
+
+    splits = {
+        "train": (X.iloc[:train_end], y.iloc[:train_end]),
+        "valid": (X.iloc[train_end:valid_end], y.iloc[train_end:valid_end]),
+        "test":  (X.iloc[valid_end:], y.iloc[valid_end:]),
+    }
+
+    for split_name, (X_split, _) in splits.items():
+        idx = X_split.index
+        date_min = df.loc[idx, "FL_DATE"].min().date()
+        date_max = df.loc[idx, "FL_DATE"].max().date()
+        print(f"{split_name.capitalize():>10}: {len(X_split):>8,} rows  |  {date_min} to {date_max}")
+
+    return splits
+
+
+def build_pipeline(numeric_features: list, categorical_features: list) -> Pipeline:
+    """Construct the sklearn preprocessing + Random Forest pipeline."""
+    numeric_transformer = Pipeline(steps=[
+        ("imputer", SimpleImputer(strategy="median"))
+    ])
+
+    categorical_transformer = Pipeline(steps=[
+        ("imputer", SimpleImputer(strategy="most_frequent")),
+        ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False))
+    ])
+
+    preprocessor = ColumnTransformer(transformers=[
+        ("num", numeric_transformer, numeric_features),
+        ("cat", categorical_transformer, categorical_features),
+    ])
+
+    pipeline = Pipeline(steps=[
+        ("preprocessor", preprocessor),
+        ("classifier", RandomForestClassifier(**RF_PARAMS))
+    ])
+
+    return pipeline
+
+
+def evaluate(model, X, y, split_label: str) -> dict:
+    """Run predictions and return all metrics for a given split."""
+    y_pred = model.predict(X)
+    y_prob = model.predict_proba(X)[:, 1]
+
+    metrics = {
+        "split": split_label,
+        "accuracy":  round(accuracy_score(y, y_pred), 4),
+        "precision": round(precision_score(y, y_pred, zero_division=0), 4),
+        "recall":    round(recall_score(y, y_pred, zero_division=0), 4),
+        "f1":        round(f1_score(y, y_pred, zero_division=0), 4),
+        "roc_auc":   round(roc_auc_score(y, y_prob), 4),
+    }
+
+    print(f"\n{split_label.upper()} METRICS")
+    for k, v in metrics.items():
+        if k != "split":
+            print(f"  {k.capitalize():<12}: {v:.4f}")
+    print(f"\n  Confusion Matrix:\n{confusion_matrix(y, y_pred)}")
+    print(f"\n  Classification Report:\n{classification_report(y, y_pred, zero_division=0)}")
+
+    return metrics
+
+
+def main():
+    MODEL_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Load and validate
+    df = load_and_validate(DATA_PATH)
+    data_checksum = file_md5(DATA_PATH)
+    print(f"\nDataset MD5: {data_checksum}")
+
+    # Resolve available features
+    features = [col for col in FEATURE_CANDIDATES if col in df.columns]
+    missing = [col for col in FEATURE_CANDIDATES if col not in df.columns]
+    print(f"\nFeatures used ({len(features)}): {features}")
+    if missing:
+        print(f"Feature candidates not in dataset (skipped): {missing}")
+    if not features:
+        raise ValueError("No modeling features found in the dataset.")
+
+    # Identify numeric vs categorical
+    X_sample = df[features]
+    numeric_features = X_sample.select_dtypes(include=["number"]).columns.tolist()
+    categorical_features = [col for col in features if col not in numeric_features]
+    print(f"\nNumeric  ({len(numeric_features)}): {numeric_features}")
+    print(f"Categorical ({len(categorical_features)}): {categorical_features}")
+
+    # Build splits
+    print("\nTime-based split (70 / 15 / 15):")
+    splits = build_splits(df, features)
+    X_train, y_train = splits["train"]
+    X_valid, y_valid = splits["valid"]
+    X_test,  y_test  = splits["test"]
+
+    # Build and train pipeline
+    model = build_pipeline(numeric_features, categorical_features)
+
+    # MLflow experiment tracking using SQLite backend
+    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+    mlflow.set_experiment("Flight Delay Prediction")
+
+    with mlflow.start_run(run_name=f"RF_v{MODEL_VERSION}_{datetime.now().strftime('%Y%m%d_%H%M%S')}") as run:
+
+        # Log metadata tags
+        mlflow.set_tags({
+            "model_version": MODEL_VERSION,
+            "dataset_version": DATASET_VERSION,
+            "model_type": "RandomForestClassifier",
+            "description": MODEL_DESCRIPTION,
+        })
+
+        # Log hyperparameters
+        mlflow.log_params(RF_PARAMS)
+        mlflow.log_param("features_used", features)
+        mlflow.log_param("n_features", len(features))
+        mlflow.log_param("train_rows", len(X_train))
+        mlflow.log_param("valid_rows", len(X_valid))
+        mlflow.log_param("test_rows", len(X_test))
+        mlflow.log_param("dataset_md5", data_checksum)
+        mlflow.log_param("dataset_version", DATASET_VERSION)
+
+        # Train
+        print("\nTraining Random Forest...")
+        model.fit(X_train, y_train)
+
+        # Save model with joblib
+        joblib.dump(model, MODEL_PATH)
+        print(f"Model saved: {MODEL_PATH}")
+
+        # Evaluate on validation and test splits
+        valid_metrics = evaluate(model, X_valid, y_valid, "validation")
+        test_metrics  = evaluate(model, X_test,  y_test,  "test")
+
+        # Log validation metrics to MLflow
+        mlflow.log_metrics({
+            "valid_accuracy":  valid_metrics["accuracy"],
+            "valid_precision": valid_metrics["precision"],
+            "valid_recall":    valid_metrics["recall"],
+            "valid_f1":        valid_metrics["f1"],
+            "valid_roc_auc":   valid_metrics["roc_auc"],
+        })
+
+        # Log test metrics to MLflow
+        mlflow.log_metrics({
+            "test_accuracy":  test_metrics["accuracy"],
+            "test_precision": test_metrics["precision"],
+            "test_recall":    test_metrics["recall"],
+            "test_f1":        test_metrics["f1"],
+            "test_roc_auc":   test_metrics["roc_auc"],
+        })
+
+        # Log the saved joblib file as an artifact so MLflow tracks it
+        mlflow.log_artifact(str(MODEL_PATH))
+
+        # mlflow.sklearn.log_model() is commented out due to a skops security
+        # exception raised by the current MLflow version when serializing
+        # RandomForest internals. The model is tracked via joblib above.
+        # Uncomment and add skops_trusted_types when the environment is updated.
+        #
+        # mlflow.sklearn.log_model(
+        #     sk_model=model,
+        #     name="random_forest_model",
+        #     registered_model_name="FlightDelayRandomForest",
+        #     skops_trusted_types=["sklearn.tree._tree.Tree", "numpy.dtype"],
+        # )
+
+        run_id = run.info.run_id
+        print(f"\nMLflow run ID: {run_id}")
+
+    # Write JSON metrics log for offline reference
+    metrics_record = {
+        "run_id": run_id,
+        "model_version": MODEL_VERSION,
+        "dataset_version": DATASET_VERSION,
+        "dataset_md5": data_checksum,
+        "trained_at": datetime.now().isoformat(),
+        "features": features,
+        "hyperparameters": RF_PARAMS,
+        "validation": valid_metrics,
+        "test": test_metrics,
+    }
+
+    with open(METRICS_LOG_PATH, "w") as f:
+        json.dump(metrics_record, f, indent=2)
+    print(f"Metrics log saved: {METRICS_LOG_PATH}")
+
+    print("\nRandom Forest training complete.")
+
+
+if __name__ == "__main__":
+    main()
