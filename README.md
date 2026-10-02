@@ -12,6 +12,19 @@ The model may later be expanded to predict the expected delay in minutes if time
 
 <img width="1898" height="1034" alt="image" src="https://github.com/user-attachments/assets/b1177760-6b1b-4584-85a3-9fb0932c9aec" />
 
+# Experiment 1 - Does expanding the training dataset from one month to three (Q1 2026) improve model performance?​
+
+What we learned:​
+
+More historical training data helped the Random Forest capture a much larger share of actual delays, but increased false alarms. ​
+
+This suggests that additional training data helped identify more true delays but created a tradeoff between recall and false alarms.​
+
+​
+
+The next experiment should focus on improving the precision/recall tradeoff rather than simply adding more data.
+
+
 # Team Members
 Megan Fields · Audrey Hartford · Lila Isett · Jamie Jordan · Melissa Sierocki
 
