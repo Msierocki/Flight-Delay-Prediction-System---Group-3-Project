@@ -1,0 +1,82 @@
+{
+  "model": "LogisticRegression",
+  "model_version": "1.0",
+  "dataset_version": "v1",
+  "description": "Version 1 Logistic Regression baseline classifier. Features: BTS flight history only (scheduled timing, route, carrier, time-based). No weather or previous-flight information. Time-based 70/15/15 train/validation/test split. OrdinalEncoder used for high-cardinality categoricals. StandardScaler applied to numeric features for convergence stability.",
+  "trained_at": "2026-10-03T16:44:09.782724",
+  "data_path": "C:\\Users\\audre\\OneDrive\\Desktop\\ML Model Code\\Data\\Processed\\flights_model_ready_v1.csv",
+  "data_checksum_md5": "419b4c0c53941c29d3d8dd0776f4252f",
+  "model_path": "C:\\Users\\audre\\OneDrive\\Desktop\\ML Model Code\\Models\\v1_baseline_logistic.joblib",
+  "features": [
+    "OP_UNIQUE_CARRIER",
+    "OP_CARRIER_FL_NUM",
+    "ORIGIN_STATE_NM",
+    "DEST_STATE_NM",
+    "CRS_DEP_TIME",
+    "CRS_ARR_TIME",
+    "CRS_ELAPSED_TIME",
+    "MONTH",
+    "DAY_OF_WEEK",
+    "DAY",
+    "DAY_OF_MONTH",
+    "IS_WEEKEND",
+    "SEASON",
+    "CRS_DEP_HOUR",
+    "CRS_DEP_MINUTE",
+    "CRS_ARR_HOUR",
+    "CRS_ARR_MINUTE",
+    "DEP_HOUR",
+    "DEP_TIME_BUCKET",
+    "ROUTE"
+  ],
+  "numeric_features": [
+    "OP_CARRIER_FL_NUM",
+    "CRS_DEP_TIME",
+    "CRS_ARR_TIME",
+    "CRS_ELAPSED_TIME",
+    "MONTH",
+    "DAY_OF_WEEK",
+    "DAY",
+    "DAY_OF_MONTH",
+    "IS_WEEKEND",
+    "CRS_DEP_HOUR",
+    "CRS_DEP_MINUTE",
+    "CRS_ARR_HOUR",
+    "CRS_ARR_MINUTE",
+    "DEP_HOUR"
+  ],
+  "categorical_features": [
+    "OP_UNIQUE_CARRIER",
+    "ORIGIN_STATE_NM",
+    "DEST_STATE_NM",
+    "SEASON",
+    "DEP_TIME_BUCKET",
+    "ROUTE"
+  ],
+  "n_train": 4826854,
+  "n_valid": 1034326,
+  "n_test": 1034327,
+  "hyperparameters": {
+    "max_iter": 2000,
+    "class_weight": "balanced",
+    "solver": "saga",
+    "n_jobs": -1,
+    "random_state": 42
+  },
+  "validation_metrics": {
+    "split": "validation",
+    "accuracy": 0.5763,
+    "precision": 0.2805,
+    "recall": 0.6419,
+    "f1": 0.3904,
+    "roc_auc": 0.6284
+  },
+  "test_metrics": {
+    "split": "test",
+    "accuracy": 0.5858,
+    "precision": 0.374,
+    "recall": 0.7201,
+    "f1": 0.4923,
+    "roc_auc": 0.6602
+  }
+}

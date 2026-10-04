@@ -1,0 +1,216 @@
+{
+  "experiment": "Experiment 4 \u2014 Classification Threshold Sweep",
+  "model": "C:\\Users\\audre\\OneDrive\\Desktop\\ML Model Code\\Models\\v1_random_forest_tuned.joblib",
+  "run_timestamp": "2026-10-04T09:07:41.099275",
+  "thresholds_tested": [
+    0.3,
+    0.35,
+    0.4,
+    0.45,
+    0.5,
+    0.55,
+    0.6,
+    0.65,
+    0.7
+  ],
+  "results": [
+    {
+      "threshold": 0.3,
+      "accuracy": 0.3642,
+      "precision": 0.301,
+      "recall": 0.9677,
+      "f1": 0.4592,
+      "roc_auc": 0.6828,
+      "confusion_matrix": [
+        [
+          97579,
+          648265
+        ],
+        [
+          9330,
+          279153
+        ]
+      ]
+    },
+    {
+      "threshold": 0.35,
+      "accuracy": 0.4182,
+      "precision": 0.3163,
+      "recall": 0.9347,
+      "f1": 0.4726,
+      "roc_auc": 0.6828,
+      "confusion_matrix": [
+        [
+          162936,
+          582908
+        ],
+        [
+          18844,
+          269639
+        ]
+      ]
+    },
+    {
+      "threshold": 0.4,
+      "accuracy": 0.4865,
+      "precision": 0.3381,
+      "recall": 0.8785,
+      "f1": 0.4883,
+      "roc_auc": 0.6828,
+      "confusion_matrix": [
+        [
+          249726,
+          496118
+        ],
+        [
+          35043,
+          253440
+        ]
+      ]
+    },
+    {
+      "threshold": 0.45,
+      "accuracy": 0.5569,
+      "precision": 0.3648,
+      "recall": 0.7944,
+      "f1": 0.5,
+      "roc_auc": 0.6828,
+      "confusion_matrix": [
+        [
+          346820,
+          399024
+        ],
+        [
+          59317,
+          229166
+        ]
+      ]
+    },
+    {
+      "threshold": 0.5,
+      "accuracy": 0.6121,
+      "precision": 0.3901,
+      "recall": 0.6933,
+      "f1": 0.4992,
+      "roc_auc": 0.6828,
+      "confusion_matrix": [
+        [
+          433138,
+          312706
+        ],
+        [
+          88490,
+          199993
+        ]
+      ]
+    },
+    {
+      "threshold": 0.55,
+      "accuracy": 0.6604,
+      "precision": 0.4188,
+      "recall": 0.5613,
+      "f1": 0.4797,
+      "roc_auc": 0.6828,
+      "confusion_matrix": [
+        [
+          521160,
+          224684
+        ],
+        [
+          126557,
+          161926
+        ]
+      ]
+    },
+    {
+      "threshold": 0.6,
+      "accuracy": 0.7006,
+      "precision": 0.4514,
+      "recall": 0.3415,
+      "f1": 0.3889,
+      "roc_auc": 0.6828,
+      "confusion_matrix": [
+        [
+          626137,
+          119707
+        ],
+        [
+          189966,
+          98517
+        ]
+      ]
+    },
+    {
+      "threshold": 0.65,
+      "accuracy": 0.7239,
+      "precision": 0.5192,
+      "recall": 0.1351,
+      "f1": 0.2144,
+      "roc_auc": 0.6828,
+      "confusion_matrix": [
+        [
+          709751,
+          36093
+        ],
+        [
+          249515,
+          38968
+        ]
+      ]
+    },
+    {
+      "threshold": 0.7,
+      "accuracy": 0.7221,
+      "precision": 0.5814,
+      "recall": 0.0125,
+      "f1": 0.0245,
+      "roc_auc": 0.6828,
+      "confusion_matrix": [
+        [
+          743240,
+          2604
+        ],
+        [
+          284866,
+          3617
+        ]
+      ]
+    }
+  ],
+  "best_by_f1": {
+    "threshold": 0.45,
+    "accuracy": 0.5569,
+    "precision": 0.3648,
+    "recall": 0.7944,
+    "f1": 0.5,
+    "roc_auc": 0.6828,
+    "confusion_matrix": [
+      [
+        346820,
+        399024
+      ],
+      [
+        59317,
+        229166
+      ]
+    ]
+  },
+  "best_precision_at_recall_65": {
+    "threshold": 0.5,
+    "accuracy": 0.6121,
+    "precision": 0.3901,
+    "recall": 0.6933,
+    "f1": 0.4992,
+    "roc_auc": 0.6828,
+    "confusion_matrix": [
+      [
+        433138,
+        312706
+      ],
+      [
+        88490,
+        199993
+      ]
+    ]
+  }
+}
