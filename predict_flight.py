@@ -6,16 +6,12 @@ from datetime import datetime
 from pathlib import Path
 import joblib
 
-# =========================
 # File paths
-# =========================
 MODEL_PATH = Path(r"C:\Users\audre\OneDrive\Desktop\ML Model Code\ML-Airport-Delay-Prediction\models\v1_random_forest.joblib")
 DATA_PATH = Path(r"C:\Users\audre\Documents\ML-Airport-Delay-Prediction\data\processed\flights_model_ready_v1.csv")
 
 
-# =========================
 # Helper functions
-# =========================
 def parse_hhmm(value):
     """Convert HHMM input into hour and minute."""
     value = int(str(value).zfill(4))
@@ -48,10 +44,7 @@ def get_state_name(airport_code, training_df, airport_column, state_column):
 
     return "Unknown"
 
-
-# =========================
 # Load model and training columns
-# =========================
 print("Loading trained model...")
 model = joblib.load(MODEL_PATH)
 print("Model loaded successfully.")
@@ -61,9 +54,7 @@ training_df = pd.read_csv(DATA_PATH)
 print("Reference dataset loaded successfully.\n")
 
 
-# =========================
 # Collect user input
-# =========================
 print("Enter flight information for prediction.")
 flight_date_input = input("Flight date (YYYY-MM-DD): ").strip()
 carrier_input = input("Operating carrier code (example: AA, DL, UA): ").strip().upper()
@@ -75,9 +66,7 @@ crs_arr_time_input = input("Scheduled arrival time in HHMM format (example: 945 
 crs_elapsed_time_input = input("Scheduled elapsed time in minutes (example: 145): ").strip()
 
 
-# =========================
 # Build input row
-# =========================
 flight_date = pd.to_datetime(flight_date_input)
 day_of_week = flight_date.dayofweek
 # Convert pandas Monday=0..Sunday=6 to BTS-like Monday=1..Sunday=7
@@ -116,19 +105,14 @@ input_df = pd.DataFrame([
 ])
 
 
-# =========================
 # Align input columns to model expectation
-# =========================
 if "TARGET_DELAYED" in training_df.columns:
     training_df = training_df.drop(columns=["TARGET_DELAYED"])
 
 expected_columns = training_df.columns.tolist()
 input_df = input_df.reindex(columns=expected_columns)
 
-
-# =========================
 # Make prediction
-# =========================
 prediction = model.predict(input_df)[0]
 probability_delay = model.predict_proba(input_df)[0, 1]
 
