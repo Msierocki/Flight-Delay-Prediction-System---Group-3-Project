@@ -1,4 +1,4 @@
-
+#used BearcatGPT ai to add/clean up comments and add some additional validation checks.
 
 import pandas as pd
 import numpy as np
@@ -33,14 +33,14 @@ MONTHLY_FILES = {
 # Columns that must be present for a row to be usable
 REQUIRED_COLS = ["FL_DATE", "OP_CARRIER_FL_NUM", "CANCELLED", "ARR_DEL15"]
 
-# String columns that must be preserved as text and never coerced to numeric.
+# String columns that must be preserved as text and never coerced to numeric
 # OP_UNIQUE_CARRIER contains airline codes (AA, DL, UA) — keeping it as str
-# ensures it is treated as categorical by the model pipeline, not as a number.
+# ensures it is treated as categorical by the model pipeline, not as a number
 STRING_COLS = ["OP_UNIQUE_CARRIER", "TAIL_NUM"]
 
-# Numeric columns that should be coerced during cleaning.
+# Numeric columns that should be taken during cleaning
 # OP_UNIQUE_CARRIER and TAIL_NUM are intentionally excluded from this list
-# so they are never overwritten by pd.to_numeric().
+# so they are never overwritten by pd.to_numeric()
 NUMERIC_COLS = [
     "CRS_DEP_TIME", "CRS_ARR_TIME", "CRS_ELAPSED_TIME",
     "DEP_TIME", "DEP_DELAY", "ARR_DELAY", "ARR_DEL15",
@@ -117,17 +117,17 @@ def ingest_monthly_files(file_map: dict) -> tuple[pd.DataFrame, list]:
             continue
 
         try:
-            # Force string dtype for carrier and tail number from the first read.
+            # Force string dtype for carrier and tail number from the first read
             # Without this, pandas infers the type from the first N rows and may
             # silently cast OP_UNIQUE_CARRIER to float if any early rows are blank,
-            # turning "AA" into NaN before we ever see it.
+            # turning "AA" into NaN before we ever see it
             dtype_overrides = {col: str for col in STRING_COLS}
             chunk = pd.read_csv(path, low_memory=False, dtype=dtype_overrides)
             chunk.columns = [c.strip().upper() for c in chunk.columns]
             chunk["SOURCE_MONTH"] = month_tag
 
-            # Strip whitespace from string columns so "AA " and "AA" are the same.
-            # Replace empty strings with NaN so the imputer handles them correctly.
+            # Strip whitespace from string columns so "AA " and "AA" are the same
+            # Replace empty strings with NaN so the imputer handles them correctly
             for col in STRING_COLS:
                 if col in chunk.columns:
                     chunk[col] = chunk[col].str.strip()
@@ -139,7 +139,7 @@ def ingest_monthly_files(file_map: dict) -> tuple[pd.DataFrame, list]:
             print(f"  [OK]   {month_tag}: {rows:,} rows  |  MD5: {checksum}")
 
             # Print a sample of carrier values immediately after load to confirm
-            # they are reading as letter codes, not numbers or blanks.
+            # they are reading as letter codes, not numbers or blanks
             if "OP_UNIQUE_CARRIER" in chunk.columns:
                 sample = chunk["OP_UNIQUE_CARRIER"].dropna().unique()[:8].tolist()
                 print(f"           OP_UNIQUE_CARRIER sample: {sample}")
@@ -234,7 +234,7 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
     from numeric coercion at every step.
     """
     # Snapshot string columns before any cleaning so they can be restored
-    # if a downstream step accidentally overwrites them.
+    # if a downstream step accidentally overwrites them
     protected = {}
     for col in STRING_COLS:
         if col in df.columns:
@@ -244,7 +244,7 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
     df["FL_DATE"] = pd.to_datetime(df["FL_DATE"], errors="coerce")
     df = df[df["FL_DATE"].notna()].copy()
 
-    # Coerce only the explicitly listed numeric columns — never touch STRING_COLS
+    # Change only the explicitly listed numeric columns — never touch STRING_COLS
     for col in NUMERIC_COLS:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
